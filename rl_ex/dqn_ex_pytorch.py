@@ -1,5 +1,8 @@
 ## pytorch example
 
+## 여기서 학습 중을 표시하는 저 그래프 탐나는데?
+## 가져와야겠음
+
 import gymnasium as gym
 import math
 import random
