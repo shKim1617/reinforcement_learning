@@ -51,6 +51,9 @@ class DroneFormationEnv(gym.Env):
         self.max_steps = 500
         self.current_step = 0
         self.terminated = False
+        
+        self.fig, self.ax = plt.subplots(221)  # 플롯을 위한 figure와 axis 생성
+        self.drone_points = None
 
     
     def reset(self, seed=None, options=None):
@@ -63,6 +66,11 @@ class DroneFormationEnv(gym.Env):
         random_angle = random.uniform(-np.pi, np.pi)
         self.leader.orientation = np.array([np.cos(random_angle), np.sin(random_angle)], dtype=np.float32)
         self.leader_velocity = random.uniform(0.5, 2.0)
+        
+        # 창을 다시 열지 않고, 초기화만 진행
+        self.ax.clear()  # 기존 창을 유지하면서 그리기 영역만 초기화
+        self.ax.set_xlim(-500, 500)
+        self.ax.set_ylim(-500, 500)
         
         # Return both the observation and an empty info dict
         return self._get_observation(), {}
@@ -94,6 +102,9 @@ class DroneFormationEnv(gym.Env):
         
         self.terminated = self._check_done()
         truncated = self.current_step >= self.max_steps
+        
+        # 현재 상태를 화면에 그리는 함수 호출
+        self.render()
         
         return self._get_observation(), reward, self.terminated, truncated, {}
 
@@ -154,6 +165,16 @@ class DroneFormationEnv(gym.Env):
             return True
         else:
             return False
+        
+    def render(self, mode='human'):
+        if self.drone_points is None:
+            self.drone_points, = self.ax.plot([], [], 'bo')  # 드론 위치를 그릴 점
+            self.ax.set_xlim(-50, 50)
+            self.ax.set_ylim(-50, 50)
+
+        self.drone_points.set_data([self.leader.position[0], self.follower1.position[0], self.follower2.position[0]],
+                                   [self.leader.position[1], self.follower1.position[1], self.follower2.position[1]])
+        plt.pause(0.001)  # 플롯을 업데이트하고 잠시 멈춤
    
    
 # matplotlib 설정
@@ -165,7 +186,8 @@ plt.ion()
 
 
 def plot_durations(episode_durations, show_result=False):
-    plt.figure(1)
+    plt.subplot(222)
+    plt.plot()
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
     if show_result:
         plt.title('Result')

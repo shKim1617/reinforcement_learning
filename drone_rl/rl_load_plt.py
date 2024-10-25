@@ -7,8 +7,8 @@ from matplotlib.animation import FuncAnimation
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-REL_POS_FOLLOWER1 = [-5, 5]
-REL_POS_FOLLOWER2 = [-5, -5]
+REL_POS_FOLLOWER1 = [-20, 20]
+REL_POS_FOLLOWER2 = [-20, -20]
 
 # 드론 클래스 정의
 class Drone:
@@ -163,6 +163,16 @@ def animate(frame):
     plt.quiver(env.leader.position[0], env.leader.position[1], env.leader.orientation[0], env.leader.orientation[1], color='blue', scale=5)
     plt.quiver(env.follower1.position[0], env.follower1.position[1], env.follower1.orientation[0], env.follower1.orientation[1], color='red', scale=5)
     plt.quiver(env.follower2.position[0], env.follower2.position[1], env.follower2.orientation[0], env.follower2.orientation[1], color='green', scale=5)
+
+    # 각 드론의 속도 계산 (속도는 벡터 크기)
+    leader_speed = np.linalg.norm(env.leader.orientation * env.leader_velocity)
+    follower1_speed = np.linalg.norm(action[:2])
+    follower2_speed = np.linalg.norm(action[2:4])
+
+    # 드론들의 속도를 텍스트로 표시
+    plt.text(env.leader.position[0], env.leader.position[1] + 5, f"Speed: {leader_speed:.2f}", color='blue')
+    plt.text(env.follower1.position[0], env.follower1.position[1] + 5, f"Speed: {follower1_speed:.2f}", color='red')
+    plt.text(env.follower2.position[0], env.follower2.position[1] + 5, f"Speed: {follower2_speed:.2f}", color='green')
 
     # 그래프 설정
     # plt.xlim(-200, 200)
