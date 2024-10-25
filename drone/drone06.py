@@ -44,9 +44,9 @@ class DroneFormationEnv(gym.Env):
         self.leader = Drone([0.0, 0.0], is_leader=True)
         self.follower1 = Drone(REL_POS_FOLLOWER1)
         self.follower2 = Drone(REL_POS_FOLLOWER2)
-        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(4,), dtype=np.float32)
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
-        self.max_steps = 200
+        self.action_space = gym.spaces.Box(low=-2, high=2, shape=(4,), dtype=np.float32)                        # 액션 스페이스
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)         # 서로 관측이 무한대로 가능
+        self.max_steps = 500
         self.current_step = 0
     
     def reset(self, seed=None, options=None):
@@ -125,6 +125,7 @@ class DroneFormationEnv(gym.Env):
         return self._check_collision()
 
 # 환경 생성
+# 이거 병렬 생산을 위한거네
 def make_env(env_id: str, rank: int, seed: int = 0):
     def _init():
         # return DroneFormationEnv()
@@ -137,6 +138,7 @@ def make_env(env_id: str, rank: int, seed: int = 0):
 if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_envs = 8
+    # 8개의 환경을 병렬로 생산
     env = SubprocVecEnv([make_env(f"DroneFormationEnv_{i}", i) for i in range(num_envs)])
     
     model = PPO(
