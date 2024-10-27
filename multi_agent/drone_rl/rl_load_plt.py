@@ -139,6 +139,8 @@ model = PPO(
         device=device
     )
 
+model.load("./drone_rl/model32_10_26/model32_.zip")
+
 def animate(frame):
     global obs, env
     
