@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CallbackList, BaseCallback
 from drone_class import Drone, LeaderDrone, FollowerDrone, create_drones
+from matplotlib.animation import FuncAnimation
 
 # 수치 정의
 NUM_FOLLOWS = 1
@@ -25,7 +26,7 @@ class DroneFormationEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
         
         # 행동 공간: 팔로워 드론들의 이동 방향 (예: [dx, dy]로 각 드론의 이동을 정의)
-        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=-2.0, high=2.0, shape=(2,), dtype=np.float32)
         
         
         # 리더와 팔로워 드론 초기화
@@ -74,11 +75,12 @@ class DroneFormationEnv(gym.Env):
             self.leader_velocity = [random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)]
             
         # 리더 드론을 속도에 따라 위치 업데이트
-        new_position = np.array(self.leader.position) + np.array(self.leader_velocity)
-        self.leader.move(new_position)
+        target_leader_position = np.array(self.leader.position) + np.array(self.leader_velocity)
+        self.leader.move(target_leader_position)
         
         # 팔로워 드론들은 행동(action)에 따라 이동
-        self.follows[0].move(action)
+        follw_target_position = self.follows[0].position + action
+        self.follows[0].move(follw_target_position)
         
         # 팔로워 드론들이 리더와의 거리를 계산
         for i in range(NUM_FOLLOWS):
@@ -265,11 +267,59 @@ model = PPO(
     normalize_advantage=True,  # 어드밴티지 정규화
 )
 
-model.learn(total_timesteps=500000, callback=callback_list)
+loaded_model = PPO.load("one_agent/version_1/test.zip")
+obs, _ = env.reset(seed=1)
 
-model.save("multi_agent_v.1/test")
-
-print('Complete')
-plot_durations(plotting_callback.episode_durations, show_result=True)
 plt.ioff()
+plt.show()
+
+def animate(frame):
+    global obs, env
+    
+    #action = env.action_space.sample()  # 랜덤 액션을 생성
+    #observation, reward, terminated, truncated, info = env.step(action)  # 스텝 실행
+    action, _ = loaded_model.predict(obs, deterministic=True)
+    obs, rewards, terminated, truncated, info = env.step(action)
+    
+    # 이전 그래픽 지우기
+    plt.cla()
+
+    # 드론 위치 다시 그리기
+    plt.scatter(env.leader.position[0], env.leader.position[1], color='blue', label='Leader')
+    plt.scatter(env.follows[0].position[0], env.follows[0].position[1], color='red', label='Follower 1')
+    #plt.scatter(env.follower2.position[0], env.follower2.position[1], color='green', label='Follower 2')
+
+    # 포메이션 라인 그리기
+    plt.plot([env.leader.position[0], env.follows[0].position[0]], [env.leader.position[1], env.follows[0].position[1]], 'r--')
+    #plt.plot([env.leader.position[0], env.follower2.position[0]], [env.leader.position[1], env.follower2.position[1]], 'g--')
+
+    # 드론들의 방향을 화살표로 그리기 (리더와 팔로워 모두)
+    plt.quiver(env.leader.position[0], env.leader.position[1], env.leader.direction[0], env.leader.direction[1], color='blue', scale=5)
+    plt.quiver(env.follows[0].position[0], env.follows[0].position[1], env.follows[0].direction[0], env.follows[0].direction[1], color='red', scale=5)
+    #plt.quiver(env.follower2.position[0], env.follower2.position[1], env.follower2.orientation[0], env.follower2.orientation[1], color='green', scale=5)
+
+    # 각 드론의 속도 계산 (속도는 벡터 크기)
+    leader_speed = np.linalg.norm(env.leader.direction * env.leader_velocity)
+    follower1_speed = np.linalg.norm(action)
+    #follower2_speed = np.linalg.norm(action[2:4])
+
+    # 드론들의 속도를 텍스트로 표시
+    plt.text(env.leader.position[0], env.leader.position[1] + 5, f"Speed: {leader_speed:.2f}", color='blue')
+    plt.text(env.follows[0].position[0], env.follows[0].position[1] + 5, f"Speed: {follower1_speed:.2f}", color='red')
+    #plt.text(env.follower2.position[0], env.follower2.position[1] + 5, f"Speed: {follower2_speed:.2f}", color='green')
+
+    # 그래프 설정
+    # plt.xlim(-200, 200)
+    # plt.ylim(-200, 200)
+    plt.xlim(env.leader.position[0] - 100, env.leader.position[0] + 100)
+    plt.ylim(env.leader.position[1] - 100, env.leader.position[1] + 100)
+    plt.title("Drone Formation Movement with Orientation")
+    plt.xlabel("X position")
+    plt.ylabel("Y position")
+    plt.legend()
+    plt.grid(True)
+    
+# 애니메이션 실행
+fig = plt.figure(figsize=(6, 6))
+ani = FuncAnimation(fig, animate, frames=100, interval=200)
 plt.show()

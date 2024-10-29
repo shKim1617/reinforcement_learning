@@ -26,7 +26,7 @@ class DroneFormationEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
         
         # 행동 공간: 팔로워 드론들의 이동 방향 (예: [dx, dy]로 각 드론의 이동을 정의)
-        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=-2.0, high=2.0, shape=(2,), dtype=np.float32)
         
         
         # 리더와 팔로워 드론 초기화
@@ -75,11 +75,12 @@ class DroneFormationEnv(gym.Env):
             self.leader_velocity = [random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)]
             
         # 리더 드론을 속도에 따라 위치 업데이트
-        new_position = np.array(self.leader.position) + np.array(self.leader_velocity)
-        self.leader.move(new_position)
+        target_leader_position = np.array(self.leader.position) + np.array(self.leader_velocity)
+        self.leader.move(target_leader_position)
         
         # 팔로워 드론들은 행동(action)에 따라 이동
-        self.follows[0].move(action)
+        follw_target_position = self.follows[0].position + action
+        self.follows[0].move(follw_target_position)
         
         # 팔로워 드론들이 리더와의 거리를 계산
         for i in range(NUM_FOLLOWS):

@@ -1,5 +1,3 @@
-# 오직 거리로만 계산
-
 import numpy as np
 import torch
 import random
@@ -16,7 +14,7 @@ REL_POS_FOLLOWERS = [[-20, 20], [20, 20]]
 SAFE_DISTANCE = 5
 MAX_DISTANCE = 30
 COLLISION_DISTANCE = 1
-MAX_STEPS = 500
+MAX_STEPS = 1000
 
 # 환경 설정
 class DroneFormationEnv(gym.Env):
@@ -27,7 +25,7 @@ class DroneFormationEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
         
         # 행동 공간: 팔로워 드론들의 이동 방향 (예: [dx, dy]로 각 드론의 이동을 정의)
-        self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=-2.0, high=2.0, shape=(2,), dtype=np.float32)
         
         
         # 리더와 팔로워 드론 초기화
@@ -38,7 +36,6 @@ class DroneFormationEnv(gym.Env):
         self.max_steps = MAX_STEPS
         self.current_step = 0
         self.terminated = False
-        self.pre_dist_to_offset = 0
         
         self.reset()
 
@@ -51,7 +48,6 @@ class DroneFormationEnv(gym.Env):
         self.leader_velocity = 0
         self.current_step = 0
         self.terminated = False
-        self.pre_dist_to_offset = 0
         
         # 초기 상태 반환 및 추가 정보 반환
         obs = self._get_obs()
@@ -78,11 +74,12 @@ class DroneFormationEnv(gym.Env):
             self.leader_velocity = [random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0)]
             
         # 리더 드론을 속도에 따라 위치 업데이트
-        new_position = np.array(self.leader.position) + np.array(self.leader_velocity)
-        self.leader.move(new_position)
+        target_leader_position = np.array(self.leader.position) + np.array(self.leader_velocity)
+        self.leader.move(target_leader_position)
         
         # 팔로워 드론들은 행동(action)에 따라 이동
-        self.follows[0].move(action)
+        follw_target_position = self.follows[0].position + action
+        self.follows[0].move(follw_target_position)
         
         # 팔로워 드론들이 리더와의 거리를 계산
         for i in range(NUM_FOLLOWS):
@@ -101,46 +98,23 @@ class DroneFormationEnv(gym.Env):
         # truncated (예: 시간이 초과되었을 때 종료되는지 여부)
         truncated = self.current_step >= self.max_steps                                       ## 여기 수정 필요
         
-        target_position = self.follows[0].calculate_offset(self.leader.direction) + self.leader.position
-        self.pre_dist_to_offset = target_position
-        
         return obs, reward, terminated, truncated, {}
 
     def _calculate_reward(self):
         reward = 0
         
         # 거리 기반 보상
-        # reward += sum(self._calculate_distance_offset())
+        reward += sum(self._calculate_distance_offset())
         
         # 세이프 거리 내에서 패널티
-        #reward += sum(self._calculate_safe_distance())        
+        reward += sum(self._calculate_safe_distance())        
         # 충돌 감지 패널티
-        #reward += sum(self._check_collision())
+        reward += sum(self._check_collision())
         
         # 너무 멀리 있는지 확인 패널티
-        # reward += sum(self._check_too_far())
+        reward += sum(self._check_too_far())
 
-        # 목표와 가까워지면 보상 멀어지면 패널티
-        reward = self._calc_distance_offset()
-        
-        
-        
         return reward
-    
-    def _calc_distance_offset(self):
-        reward = 0
-        target_position = self.follows[0].calculate_offset(self.leader.direction) + self.leader.position
-        distance = np.linalg.norm(self.follows[0].position - target_position)
-        
-        if distance < 1:
-            reward += 100
-        elif distance < 50:
-            reward += 50 - distance
-        else:
-            reward -= distance - 50
-        
-        return reward
-        
     
     def _calculate_distance_offset(self):
 
@@ -155,8 +129,8 @@ class DroneFormationEnv(gym.Env):
             dist_follows.append(np.linalg.norm(self.follows[i].position - target_positions[i]))
 
         rewards = []
-        if dist_follows[0] < 100:
-            rewards.append(100 - dist_follows[0])
+        for i in range(NUM_FOLLOWS):
+            rewards.append(max(0, 1 - dist_follows[i] / MAX_DISTANCE))
             
         return rewards
     
@@ -196,7 +170,7 @@ class DroneFormationEnv(gym.Env):
         rewards = []
         for i in range(NUM_FOLLOWS):
             if self.follows[i].distance_to_leader > 100:
-                rewards.append(self.follows[i].distance_to_leader - 100)
+                rewards.append(-100)
             else:
                 rewards.append(0)
 
@@ -204,10 +178,14 @@ class DroneFormationEnv(gym.Env):
     
     def _is_done(self):
         # 리더와 팔로워가 너무 멀어지면 종료
-        if self.current_step > MAX_STEPS:
-            return True
-        else:
-            return False
+        dist_follows = []
+        for i in range(NUM_FOLLOWS):
+            dist_follows.append(np.linalg.norm(self.leader.position - self.follows[i].position))
+        
+        if any(dist > 100 for dist in dist_follows) or self.current_step > MAX_STEPS:
+            return True  # 종료 조건 만족
+        
+        return False
     
 # # matplotlib 설정
 is_ipython = 'inline' in plt.get_backend()
@@ -261,52 +239,6 @@ class PlottingCallback(BaseCallback):
     def _on_training_end(self) -> None:
         # 학습이 끝났을 때 최종 결과를 표시
         plot_durations(self.episode_durations, show_result=True)
-        
-def plot_rewards(episode_rewards, show_result=False):
-    plt.figure(1)
-    rewards_t = torch.tensor(episode_rewards, dtype=torch.float)
-    if show_result:
-        plt.title('Final Reward per Episode (Result)')
-    else:
-        plt.clf()
-        plt.title('Final Reward per Episode (Training...)')
-    plt.xlabel('Episode')
-    plt.ylabel('Reward')
-    plt.plot(rewards_t.numpy())
-    # 100개의 에피소드 평균을 가져와서 도표 그리기
-    if len(rewards_t) >= 100:
-        means = rewards_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
-
-    plt.pause(0.001)  # 도표가 업데이트되도록 잠시 멈춤
-    if is_ipython:
-        if not show_result:
-            display.display(plt.gcf())
-            display.clear_output(wait=True)
-        else:
-            display.display(plt.gcf())
-
-class Plot_rewards_Callback(BaseCallback):
-    def __init__(self, verbose=0):
-        super(Plot_rewards_Callback, self).__init__(verbose)
-        self.episode_rewards = []  # 보상을 저장할 리스트
-
-    def _on_step(self) -> bool:
-        # 매 스텝마다 호출되는 함수
-        # 'dones' 배열에서 현재 환경의 종료 상태를 확인
-        if self.locals['dones'][0]:
-            # 에피소드가 종료되면 누적된 보상을 기록
-            episode_reward = self.locals['infos'][0].get('episode', {}).get('r', 0)  # sum() 제거
-            self.episode_rewards.append(episode_reward)
-            plot_rewards(self.episode_rewards)  # 클래스 내부의 episode_rewards를 전달
-
-        return True  # 계속 학습하기 위해서는 True 반환
-
-    def _on_training_end(self) -> None:
-        # 학습이 끝났을 때 최종 결과를 표시
-        plot_rewards(self.episode_rewards, show_result=True)
-
     
 # 실행 준비
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -314,9 +246,8 @@ env = DroneFormationEnv()
 env.reset(seed=1)
 
 plotting_callback = PlottingCallback()
-plot_reward_callback = Plot_rewards_Callback()
 
-callback_list = CallbackList([plot_reward_callback])
+callback_list = CallbackList([plotting_callback])
 
 model = PPO(
     "MlpPolicy", 
@@ -335,9 +266,9 @@ model = PPO(
     normalize_advantage=True,  # 어드밴티지 정규화
 )
 
-model.learn(total_timesteps=5000000, callback=callback_list)
+model.learn(total_timesteps=500000, callback=callback_list)
 
-model.save("one_agent/test")
+model.save("one_agent/version_1/model")
 
 print('Complete')
 plot_durations(plotting_callback.episode_durations, show_result=True)
