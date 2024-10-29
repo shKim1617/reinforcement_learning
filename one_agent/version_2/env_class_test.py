@@ -1,20 +1,14 @@
+print(100 == True)
+
 import torch
 import matplotlib.pyplot as plt
-import numpy as np
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import CallbackList
+from stable_baselines3.common.callbacks import CallbackList, BaseCallback
 from env_class import DroneFormationEnv
-from env_callback import PlottingCallback, plot_durations
-
-# 실행 준비
+from env_class import DroneFormationEnv
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 env = DroneFormationEnv()
-seed = np.random.randint(0, 2147483647,dtype=np.int32)
-env.reset(seed=seed)
-
-plotting_callback = PlottingCallback()
-
-callback_list = CallbackList([plotting_callback])
+obs, _ = env.reset()
 
 model = PPO(
     "MlpPolicy", 
@@ -33,11 +27,4 @@ model = PPO(
     normalize_advantage=True,  # 어드밴티지 정규화
 )
 
-model.learn(total_timesteps=1000000, callback=callback_list)
-
-model.save("one_agent/version_2/test")
-
-print('Complete')
-plot_durations(plotting_callback.episode_durations, show_result=True)
-plt.ioff()
-plt.show()
+model.learn(total_timesteps=1000)
