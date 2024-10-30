@@ -129,9 +129,9 @@ class DroneFormationEnv(gym.Env):
         reward = 0
         penalty = 0
         if self.follows[0].distance_to_target_position < MAX_DISTANCE_TO_OFFSET:
-            reward += (MAX_DISTANCE_TO_OFFSET - self.follows[0].distance_to_target_position)**1
+            reward += (MAX_DISTANCE_TO_OFFSET - self.follows[0].distance_to_target_position)**2
         else:
-            penalty -= (self.follows[0].distance_to_target_position - MAX_DISTANCE_TO_OFFSET)**1
+            penalty -= (self.follows[0].distance_to_target_position - MAX_DISTANCE_TO_OFFSET)**2
             
         return reward + penalty
     
