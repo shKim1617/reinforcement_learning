@@ -9,6 +9,7 @@ from drone_class import Drone, LeaderDrone, FollowerDrone, create_drones
 from matplotlib.animation import FuncAnimation
 from env_class import DroneFormationEnv
 from env_callback import PlottingCallback
+from values import LOAD_BEST_MODEL_PATH, LOAD_MODEL_PATH
 
 
 # 실행 준비
@@ -37,10 +38,11 @@ model = PPO(
     normalize_advantage=True,  # 어드밴티지 정규화
 )
 
-loaded_model_pass = "one_agent/version_2/test.zip"
-best_model_pass = "one_agent/version_2/best_model/best_model.zip"
-loaded_model = PPO.load(best_model_pass)
-obs, _ = env.reset(seed=1)
+loaded_model_path = LOAD_MODEL_PATH
+best_model_path =LOAD_BEST_MODEL_PATH
+loaded_model = PPO.load(best_model_path)
+seed = np.random.randint(0, 2147483647,dtype=np.int32)
+obs, _ = env.reset(seed=seed)
 
 plt.ioff()
 plt.show()

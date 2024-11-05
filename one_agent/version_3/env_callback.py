@@ -2,6 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
+from values import LOG_PATH, SAVE_BEST_MODEL_PATH
 
 # 학습 중 실행된 에피소드 길이 콜백 함수
 is_ipython = 'inline' in plt.get_backend()
@@ -103,8 +104,8 @@ def create_eval_callback(env):
     eval_env = env
     eval_callback = EvalCallback(
         eval_env,
-        best_model_save_path="./one_agent/version_2/best_model/",
-        log_path="./one_agent/version_2/logs/",
+        best_model_save_path=SAVE_BEST_MODEL_PATH,
+        log_path=LOG_PATH,
         eval_freq=10000,
         deterministic=True,
         render=False

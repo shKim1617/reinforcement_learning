@@ -5,6 +5,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CallbackList
 from env_class import DroneFormationEnv
 from env_callback import PlottingCallback, plot_durations, create_eval_callback, Rewards_PlottingCallback, plot_rewards
+from values import SAVE_MODEL_PATH
 
 # 실행 준비
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,7 +42,7 @@ model = PPO("MlpPolicy", env, verbose=1, device=device)
 
 model.learn(total_timesteps=10_000_000, callback=callback_list)
 
-model.save("one_agent/version_2/test")
+model.save(SAVE_MODEL_PATH)
 
 print('Complete')
 plot_durations(plotting_callback.episode_durations, show_result=True)
