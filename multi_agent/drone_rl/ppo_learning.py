@@ -22,6 +22,8 @@ class Drone:
     def update_position(self, velocity):
         self.position += velocity
 
+    # 서로의 위치는 이미 공유를 하고 있는데
+    # 서로의 위치와 방향을 또 다시 계산을 해야만 하나?
     def get_relative_distance_and_direction(self, other_drone):
         relative_position = other_drone.position - self.position
         distance = np.linalg.norm(relative_position).astype(np.float32)
